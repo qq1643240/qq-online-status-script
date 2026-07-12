@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>QQ 改机型</title>
+<title>QQ 改机型（Shadowrocket 版）</title>
 <style>
   body { font-family: -apple-system, system-ui, "PingFang SC", sans-serif; max-width: 520px; margin: 0 auto; padding: 16px; color: #222; }
   h2 { font-size: 20px; }
@@ -11,22 +11,24 @@
   label { display: block; margin: 14px 0 6px; font-weight: 600; font-size: 14px; }
   input, select { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccd; border-radius: 10px; font-size: 15px; }
   button { margin-top: 18px; width: 100%; padding: 13px; border: 0; border-radius: 12px; background: #07c160; color: #fff; font-size: 16px; font-weight: 600; }
-  #msg { margin-top: 14px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+  #msg { margin-top: 14px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
   code { background: #eee; padding: 1px 5px; border-radius: 5px; }
 </style>
 </head>
 <body>
-<h2>QQ 自定义在线状态 · 改机型</h2>
+<h2>QQ 改机型 · 网页选 · Shadowrocket 改</h2>
 <p class="tip">
-  ① 在私有仓库 <code>Settings → Secrets</code> 填好 <code>QQ_UIN</code> / <code>QQ_SKEY</code> / <code>QQ_P_SKEY</code> / <code>QQ_PT4_TOKEN</code>（只需一次，之后不用再填）。<br>
-  ② 下面填 GitHub PAT（需 <code>actions:write</code> 权限，仅存本机浏览器），选机型+配色，点「应用」即可。
+  本页只负责把你在网页上选的机型/配色，写回 Shadowrocket 加载的脚本（<code>qq_model.js</code>）。<br>
+  真正改写的是你手机上的 Shadowrocket（无需 Cookie）。<br>
+  ① 填 GitHub PAT（需能推送到公开脚本仓库 <code>qq-online-status-script</code>，即 repo 权限）。<br>
+  ② 选机型 + 配色 → 点「应用」→ 在 Shadowrocket 里把该模块关掉再打开重载脚本 → QQ 重新保存在线状态。
 </p>
 
 <label>GitHub PAT（本地保存）</label>
 <input id="pat" type="password" placeholder="ghp_..." autocomplete="off">
 
-<label>仓库 owner/repo</label>
-<input id="repo" value="qq1643240/qq-model-changer">
+<label>脚本仓库 owner/repo（公开脚本仓）</label>
+<input id="repo" value="qq1643240/qq-online-status-script">
 
 <label>机型</label>
 <select id="model"></select>
@@ -127,35 +129,65 @@ const setMsg = t => { msg.textContent = t; };
 if (localStorage.getItem('qq_pat')) patInput.value = localStorage.getItem('qq_pat');
 if (localStorage.getItem('qq_repo')) repoInput.value = localStorage.getItem('qq_repo');
 
+function b64decode(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+async function getFile(repo, path, pat) {
+  const [o, n] = repo.split('/');
+  const r = await fetch(`https://api.github.com/repos/${o}/${n}/contents/${path}`, {
+    headers: { 'Authorization': 'Bearer ' + pat, 'Accept': 'application/vnd.github+json' }
+  });
+  if (!r.ok) throw new Error('读取 ' + path + ' 失败: ' + r.status);
+  const j = await r.json();
+  return { content: j.content, sha: j.sha };
+}
+async function putFile(repo, path, pat, content, sha, message) {
+  const [o, n] = repo.split('/');
+  const r = await fetch(`https://api.github.com/repos/${o}/${n}/contents/${path}`, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + pat, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, content: b64encode(content), sha })
+  });
+  if (!r.ok) throw new Error('写入 ' + path + ' 失败: ' + r.status);
+}
+
 document.getElementById('go').onclick = async () => {
   const pat = patInput.value.trim();
   const repo = repoInput.value.trim();
-  const model = modelSel.value;
+  const modelId = modelSel.value;
+  const name = MODELS[modelId].name;
   const color = colorSel.value;
   if (!pat) { setMsg('请填写 GitHub PAT'); return; }
   if (!repo.includes('/')) { setMsg('仓库格式应为 owner/repo'); return; }
   localStorage.setItem('qq_pat', pat);
   localStorage.setItem('qq_repo', repo);
-  setMsg('触发中…');
+  setMsg('正在写回脚本…');
   try {
-    const [owner, name] = repo.split('/');
-    const resp = await fetch(`https://api.github.com/repos/${owner}/${name}/actions/workflows/set-model.yml/dispatches`, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + pat,
-        'Accept': 'application/vnd.github+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ ref: 'main', inputs: { model, color, show: '' } })
-    });
-    if (resp.status === 204) {
-      setMsg('✅ 已触发！前往 GitHub → Actions → 「QQ 改机型」查看日志确认结果。\n（实际改机型在云端服务器执行，无需本机开代理）');
-    } else {
-      const t = await resp.text();
-      setMsg('❌ 失败 (' + resp.status + ')：' + t);
-    }
+    const f = await getFile(repo, 'qq_model.js', pat);
+    let src = b64decode(f.content);
+    src = src.replace(/const TARGET_MODEL\s*=\s*"[^"]*";/, `const TARGET_MODEL = "${modelId}";`);
+    src = src.replace(/const TARGET_NAME\s*=\s*"[^"]*";/, `const TARGET_NAME  = "${name}";`);
+    src = src.replace(/const COLOR_MODE\s*=\s*"[^"]*";/, `const COLOR_MODE  = "fixed";`);
+    src = src.replace(/const FIXED_COLOR\s*=\s*"[^"]*";/, `const FIXED_COLOR = "${color}";`);
+    await putFile(repo, 'qq_model.js', pat, src, f.sha, `设置机型为 ${name} (${color})`);
+    setMsg(
+      `✅ 已把脚本更新为：${name} (${color})\n\n` +
+      `下一步（在 iPhone 上）：\n` +
+      `1) Shadowrocket 里把该模块「关掉再打开」（或重新导入），让它重载新脚本；\n` +
+      `2) 打开 QQ → 设置 → 账号管理 → 在线状态 → 保存一次；\n` +
+      `3) 你的在线状态就会显示「${name} (${color})」。`
+    );
   } catch (e) {
-    setMsg('❌ 请求出错：' + e + '\n（若被浏览器拦截，请直接在仓库 Actions 页面手动 Run workflow）');
+    setMsg('❌ 出错：' + e.message + '\n（确认 PAT 有该公开仓库的 repo 权限；若被浏览器拦截，请手动改 qq_model.js 的常量）');
   }
 };
 </script>
