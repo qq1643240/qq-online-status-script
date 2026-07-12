@@ -18,14 +18,11 @@
 <body>
 <h2>QQ 改机型 · 网页选 · Shadowrocket 改</h2>
 <p class="tip">
-  本页只负责把你在网页上选的机型/配色，写回 Shadowrocket 加载的脚本（<code>qq_model.js</code>）。<br>
+  本页已内置 PAT，直接选机型 + 配色 → 点「应用」即可把选择写回 Shadowrocket 加载的脚本（<code>qq_model.js</code>）。<br>
   真正改写的是你手机上的 Shadowrocket（无需 Cookie）。<br>
-  ① 填 GitHub PAT（需能推送到公开脚本仓库 <code>qq-online-status-script</code>，即 repo 权限）。<br>
-  ② 选机型 + 配色 → 点「应用」→ 在 Shadowrocket 里把该模块关掉再打开重载脚本 → QQ 重新保存在线状态。
+  ① 选机型 + 配色 → 点「应用」。<br>
+  ② 在 Shadowrocket 里把「iPhone型号」模块关掉再打开重载脚本 → QQ 重新保存在线状态。
 </p>
-
-<label>GitHub PAT（本地保存）</label>
-<input id="pat" type="password" placeholder="ghp_..." autocomplete="off">
 
 <label>脚本仓库 owner/repo（公开脚本仓）</label>
 <input id="repo" value="qq1643240/qq-online-status-script">
@@ -40,6 +37,8 @@
 <div id="msg"></div>
 
 <script>
+const DEFAULT_PAT = "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";
+
 const MODELS = {
   "iPhone3,1": { "name": "iPhone 4", "colors": ["黑色", "白色"] },
   "iPhone3,2": { "name": "iPhone 4", "colors": ["黑色", "白色"] },
@@ -121,13 +120,9 @@ function fillColors() {
 modelSel.addEventListener('change', fillColors);
 fillColors();
 
-const patInput = document.getElementById('pat');
 const repoInput = document.getElementById('repo');
 const msg = document.getElementById('msg');
 const setMsg = t => { msg.textContent = t; };
-
-if (localStorage.getItem('qq_pat')) patInput.value = localStorage.getItem('qq_pat');
-if (localStorage.getItem('qq_repo')) repoInput.value = localStorage.getItem('qq_repo');
 
 function b64decode(b64) {
   const bin = atob(b64);
@@ -161,15 +156,12 @@ async function putFile(repo, path, pat, content, sha, message) {
 }
 
 document.getElementById('go').onclick = async () => {
-  const pat = patInput.value.trim();
+  const pat = DEFAULT_PAT;
   const repo = repoInput.value.trim();
   const modelId = modelSel.value;
   const name = MODELS[modelId].name;
   const color = colorSel.value;
-  if (!pat) { setMsg('请填写 GitHub PAT'); return; }
   if (!repo.includes('/')) { setMsg('仓库格式应为 owner/repo'); return; }
-  localStorage.setItem('qq_pat', pat);
-  localStorage.setItem('qq_repo', repo);
   setMsg('正在写回脚本…');
   try {
     const f = await getFile(repo, 'qq_model.js', pat);
@@ -182,12 +174,12 @@ document.getElementById('go').onclick = async () => {
     setMsg(
       `✅ 已把脚本更新为：${name} (${color})\n\n` +
       `下一步（在 iPhone 上）：\n` +
-      `1) Shadowrocket 里把该模块「关掉再打开」（或重新导入），让它重载新脚本；\n` +
+      `1) Shadowrocket 里把「iPhone型号」模块关掉再打开（重载脚本）；\n` +
       `2) 打开 QQ → 设置 → 账号管理 → 在线状态 → 保存一次；\n` +
-      `3) 你的在线状态就会显示「${name} (${color})」。`
+      `3) 在线状态就会显示「${name} (${color})」。`
     );
   } catch (e) {
-    setMsg('❌ 出错：' + e.message + '\n（确认 PAT 有该公开仓库的 repo 权限；若被浏览器拦截，请手动改 qq_model.js 的常量）');
+    setMsg('❌ 出错：' + e.message + '\n（若提示 401，说明内置 token 已失效，需要换一个新的 PAT）');
   }
 };
 </script>
