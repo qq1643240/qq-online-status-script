@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QQ 改机型（Shadowrocket 版）</title>
+<style>
+  body { font-family: -apple-system, system-ui, "PingFang SC", sans-serif; max-width: 520px; margin: 0 auto; padding: 16px; color: #222; }
+  h2 { font-size: 20px; }
+  .tip { background: #f4f6f8; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.6; color: #555; }
+  label { display: block; margin: 14px 0 6px; font-weight: 600; font-size: 14px; }
+  input, select { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccd; border-radius: 10px; font-size: 15px; }
+  button { margin-top: 18px; width: 100%; padding: 13px; border: 0; border-radius: 12px; background: #07c160; color: #fff; font-size: 16px; font-weight: 600; }
+  #msg { margin-top: 14px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+  code { background: #eee; padding: 1px 5px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<h2>QQ 改机型 · 网页选 · Shadowrocket 改</h2>
+<p class="tip">
+  本页已内置 PAT，直接选机型 + 配色 → 点「应用」即可把选择写回 Shadowrocket 加载的脚本（<code>qq_model.js</code>）。<br>
+  真正改写的是你手机上的 Shadowrocket（无需 Cookie）。<br>
+  ① 选机型 + 配色 → 点「应用」。<br>
+  ② 在 Shadowrocket 里把「iPhone型号」模块关掉再打开重载脚本 → QQ 重新保存在线状态。
+</p>
+
+<label>脚本仓库 owner/repo（公开脚本仓）</label>
+<input id="repo" value="qq1643240/qq-online-status-script">
+
+<label>机型</label>
+<select id="model"></select>
+
+<label>配色</label>
+<select id="color"></select>
+
+<button id="go">应用</button>
+<div id="msg"></div>
+
+<script>
+const DEFAULT_PAT = "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";
+
+const MODELS = {
+  "iPhone3,1": { "name": "iPhone 4", "colors": ["黑色", "白色"] },
+  "iPhone3,2": { "name": "iPhone 4", "colors": ["黑色", "白色"] },
+  "iPhone3,3": { "name": "iPhone 4", "colors": ["黑色", "白色"] },
+  "iPhone4,1": { "name": "iPhone 4S", "colors": ["黑色", "白色"] },
+  "iPhone5,1": { "name": "iPhone 5", "colors": ["黑色", "白色"] },
+  "iPhone5,2": { "name": "iPhone 5", "colors": ["黑色", "白色"] },
+  "iPhone5,3": { "name": "iPhone 5c", "colors": ["蓝色", "绿色", "黄色", "粉色", "白色"] },
+  "iPhone5,4": { "name": "iPhone 5c", "colors": ["蓝色", "绿色", "黄色", "粉色", "白色"] },
+  "iPhone6,1": { "name": "iPhone 5s", "colors": ["深空灰色", "银色", "金色"] },
+  "iPhone6,2": { "name": "iPhone 5s", "colors": ["深空灰色", "银色", "金色"] },
+  "iPhone7,2": { "name": "iPhone 6", "colors": ["深空灰色", "银色", "金色"] },
+  "iPhone7,1": { "name": "iPhone 6 Plus", "colors": ["深空灰色", "银色", "金色"] },
+  "iPhone8,1": { "name": "iPhone 6s", "colors": ["深空灰色", "银色", "金色", "玫瑰金色"] },
+  "iPhone8,2": { "name": "iPhone 6s Plus", "colors": ["深空灰色", "银色", "金色", "玫瑰金色"] },
+  "iPhone8,4": { "name": "iPhone SE (第1代)", "colors": ["深空灰色", "银色", "金色", "玫瑰金色"] },
+  "iPhone9,1": { "name": "iPhone 7", "colors": ["银色", "金色", "玫瑰金色", "黑色", "亮黑色", "红色"] },
+  "iPhone9,3": { "name": "iPhone 7", "colors": ["银色", "金色", "玫瑰金色", "黑色", "亮黑色", "红色"] },
+  "iPhone9,2": { "name": "iPhone 7 Plus", "colors": ["银色", "金色", "玫瑰金色", "黑色", "亮黑色", "红色"] },
+  "iPhone9,4": { "name": "iPhone 7 Plus", "colors": ["银色", "金色", "玫瑰金色", "黑色", "亮黑色", "红色"] },
+  "iPhone10,1": { "name": "iPhone 8", "colors": ["金色", "银色", "深空灰色", "红色"] },
+  "iPhone10,4": { "name": "iPhone 8", "colors": ["金色", "银色", "深空灰色", "红色"] },
+  "iPhone10,2": { "name": "iPhone 8 Plus", "colors": ["金色", "银色", "深空灰色", "红色"] },
+  "iPhone10,5": { "name": "iPhone 8 Plus", "colors": ["金色", "银色", "深空灰色", "红色"] },
+  "iPhone10,3": { "name": "iPhone X", "colors": ["银色", "深空灰色"] },
+  "iPhone10,6": { "name": "iPhone X", "colors": ["银色", "深空灰色"] },
+  "iPhone11,2": { "name": "iPhone XS", "colors": ["银色", "深空灰色", "金色"] },
+  "iPhone11,4": { "name": "iPhone XS Max", "colors": ["银色", "深空灰色", "金色"] },
+  "iPhone11,6": { "name": "iPhone XS Max", "colors": ["银色", "深空灰色", "金色"] },
+  "iPhone11,8": { "name": "iPhone XR", "colors": ["红色", "黄色", "白色", "珊瑚色", "黑色", "蓝色"] },
+  "iPhone12,1": { "name": "iPhone 11", "colors": ["紫色", "黄色", "绿色", "黑色", "白色", "红色"] },
+  "iPhone12,3": { "name": "iPhone 11 Pro", "colors": ["暗夜绿色", "银色", "深空灰色", "金色"] },
+  "iPhone12,5": { "name": "iPhone 11 Pro Max", "colors": ["暗夜绿色", "银色", "深空灰色", "金色"] },
+  "iPhone12,8": { "name": "iPhone SE (第2代)", "colors": ["黑色", "白色", "红色"] },
+  "iPhone13,1": { "name": "iPhone 12 mini", "colors": ["黑色", "白色", "红色", "绿色", "蓝色"] },
+  "iPhone13,2": { "name": "iPhone 12", "colors": ["黑色", "白色", "红色", "绿色", "蓝色"] },
+  "iPhone13,3": { "name": "iPhone 12 Pro", "colors": ["石墨色", "银色", "金色", "海蓝色"] },
+  "iPhone13,4": { "name": "iPhone 12 Pro Max", "colors": ["石墨色", "银色", "金色", "海蓝色"] },
+  "iPhone14,4": { "name": "iPhone 13 mini", "colors": ["粉色", "蓝色", "午夜色", "星光色", "红色", "绿色"] },
+  "iPhone14,5": { "name": "iPhone 13", "colors": ["粉色", "蓝色", "午夜色", "星光色", "红色", "绿色"] },
+  "iPhone14,2": { "name": "iPhone 13 Pro", "colors": ["远峰蓝色", "石墨色", "银色", "金色", "苍岭绿色"] },
+  "iPhone14,3": { "name": "iPhone 13 Pro Max", "colors": ["远峰蓝色", "石墨色", "银色", "金色", "苍岭绿色"] },
+  "iPhone14,6": { "name": "iPhone SE (第3代)", "colors": ["黑色", "白色", "红色"] },
+  "iPhone14,7": { "name": "iPhone 14", "colors": ["午夜色", "星光色", "蓝色", "紫色", "红色", "黄色"] },
+  "iPhone14,8": { "name": "iPhone 14 Plus", "colors": ["午夜色", "星光色", "蓝色", "紫色", "红色", "黄色"] },
+  "iPhone15,2": { "name": "iPhone 14 Pro", "colors": ["暗紫色", "金色", "银色", "黑色", "黄色"] },
+  "iPhone15,3": { "name": "iPhone 14 Pro Max", "colors": ["暗紫色", "金色", "银色", "黑色", "黄色"] },
+  "iPhone15,4": { "name": "iPhone 15", "colors": ["粉色", "黄色", "绿色", "蓝色", "黑色"] },
+  "iPhone15,5": { "name": "iPhone 15 Plus", "colors": ["粉色", "黄色", "绿色", "蓝色", "黑色"] },
+  "iPhone16,1": { "name": "iPhone 15 Pro", "colors": ["原色钛金属", "蓝色钛金属", "白色钛金属", "黑色钛金属"] },
+  "iPhone16,2": { "name": "iPhone 15 Pro Max", "colors": ["原色钛金属", "蓝色钛金属", "白色钛金属", "黑色钛金属"] },
+  "iPhone17,3": { "name": "iPhone 16", "colors": ["黑色", "白色", "粉色", "深青色", "群青色"] },
+  "iPhone17,4": { "name": "iPhone 16 Plus", "colors": ["黑色", "白色", "粉色", "深青色", "群青色"] },
+  "iPhone17,1": { "name": "iPhone 16 Pro", "colors": ["原色钛金属", "沙漠钛金属", "白色钛金属", "黑色钛金属"] },
+  "iPhone17,2": { "name": "iPhone 16 Pro Max", "colors": ["原色钛金属", "沙漠钛金属", "白色钛金属", "黑色钛金属"] },
+  "iPhone18,3": { "name": "iPhone 17", "colors": ["黑色", "白色", "钢铁灰", "绿色", "紫色", "浅蓝色"] },
+  "iPhone18,1": { "name": "iPhone 17 Pro", "colors": ["银色", "宇宙橙", "深蓝色", "黑色"] },
+  "iPhone18,2": { "name": "iPhone 17 Pro Max", "colors": ["银色", "宇宙橙", "深蓝色", "黑色"] },
+  "iPhone18,4": { "name": "iPhone Air", "colors": ["黑色", "白色", "浅蓝色", "浅金色"] },
+  "iPhone18,5": { "name": "iPhone 17e", "colors": ["黑色", "白色", "浅蓝色"] }
+};
+
+const modelSel = document.getElementById('model');
+const colorSel = document.getElementById('color');
+for (const [id, info] of Object.entries(MODELS)) {
+  const o = document.createElement('option');
+  o.value = id; o.textContent = id + '  ' + info.name;
+  modelSel.appendChild(o);
+}
+function fillColors() {
+  const info = MODELS[modelSel.value] || { colors: [] };
+  colorSel.innerHTML = '';
+  (info.colors || []).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c; o.textContent = c;
+    colorSel.appendChild(o);
+  });
+}
+modelSel.addEventListener('change', fillColors);
+fillColors();
+
+const repoInput = document.getElementById('repo');
+const msg = document.getElementById('msg');
+const setMsg = t => { msg.textContent = t; };
+
+function b64decode(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+function b64encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+async function getFile(repo, path, pat) {
+  const [o, n] = repo.split('/');
+  const r = await fetch(`https://api.github.com/repos/${o}/${n}/contents/${path}`, {
+    headers: { 'Authorization': 'Bearer ' + pat, 'Accept': 'application/vnd.github+json' }
+  });
+  if (!r.ok) throw new Error('读取 ' + path + ' 失败: ' + r.status);
+  const j = await r.json();
+  return { content: j.content, sha: j.sha };
+}
+async function putFile(repo, path, pat, content, sha, message) {
+  const [o, n] = repo.split('/');
+  const r = await fetch(`https://api.github.com/repos/${o}/${n}/contents/${path}`, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + pat, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, content: b64encode(content), sha })
+  });
+  if (!r.ok) throw new Error('写入 ' + path + ' 失败: ' + r.status);
+}
+
+document.getElementById('go').onclick = async () => {
+  const pat = DEFAULT_PAT;
+  const repo = repoInput.value.trim();
+  const modelId = modelSel.value;
+  const name = MODELS[modelId].name;
+  const color = colorSel.value;
+  if (!repo.includes('/')) { setMsg('仓库格式应为 owner/repo'); return; }
+  setMsg('正在写回脚本…');
+  try {
+    const f = await getFile(repo, 'qq_model.js', pat);
+    let src = b64decode(f.content);
+    src = src.replace(/const TARGET_MODEL\s*=\s*"[^"]*";/, `const TARGET_MODEL = "${modelId}";`);
+    src = src.replace(/const TARGET_NAME\s*=\s*"[^"]*";/, `const TARGET_NAME  = "${name}";`);
+    src = src.replace(/const COLOR_MODE\s*=\s*"[^"]*";/, `const COLOR_MODE  = "fixed";`);
+    src = src.replace(/const FIXED_COLOR\s*=\s*"[^"]*";/, `const FIXED_COLOR = "${color}";`);
+    await putFile(repo, 'qq_model.js', pat, src, f.sha, `设置机型为 ${name} (${color})`);
+    setMsg(
+      `✅ 已把脚本更新为：${name} (${color})\n\n` +
+      `下一步（在 iPhone 上）：\n` +
+      `1) Shadowrocket 里把「iPhone型号」模块关掉再打开（重载脚本）；\n` +
+      `2) 打开 QQ → 设置 → 账号管理 → 在线状态 → 保存一次；\n` +
+      `3) 在线状态就会显示「${name} (${color})」。`
+    );
+  } catch (e) {
+    setMsg('❌ 出错：' + e.message + '\n（若提示 401，说明内置 token 已失效，需要换一个新的 PAT）');
+  }
+};
+</script>
+</body>
+</html>
