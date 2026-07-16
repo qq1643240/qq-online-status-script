@@ -1,0 +1,10 @@
+#!name = QQ机型小尾巴二合一（在线设备+空间小尾巴）
+#!desc = 在QQ空间"手机标识"设置页注入脚本，自动写入自定义机型，覆盖QQ在线设备与空间小尾巴，免黄钻，无需cookie
+#!system = ios
+#!author = qq1643240
+
+[Script]
+qq_device_tail = type=http-response,pattern=^https?:\/\/h5\.qzone\.qq\.com\/v2\/vip\/show\/tail,requires-body=1,script-path=https://raw.githubusercontent.com/qq1643240/qq-online-status-script/main/qq-device-tail.js,timeout=15
+
+[MITM]
+hostname = %APPEND% h5.qzone.qq.com
