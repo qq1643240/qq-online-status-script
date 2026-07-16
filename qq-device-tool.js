@@ -11,16 +11,16 @@
 // ===== 工具页内运行的代码 =====
 function pageCode2() {
   var DEFAULT = 'iPhone 17 Pro Max';
-  var list = [], template = null;
+  var list = [];
 
   function $(id) { return document.getElementById(id); }
   function status(m) { var s = $('st'); if (s) s.textContent = m; }
   function toast(m) {
     var t = document.createElement('div');
     t.textContent = m;
-    t.style.cssText = 'position:fixed;left:50%;top:16%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;z-index:99999;max-width:82%;text-align:center';
+    t.style.cssText = 'position:fixed;left:50%;top:14%;transform:translateX(-50%);background:rgba(0,0,0,.82);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;z-index:99999;max-width:84%;text-align:center';
     document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 2400);
+    setTimeout(function () { t.remove(); }, 2600);
   }
 
   // 原生把机型列表回调到这里
@@ -29,9 +29,8 @@ function pageCode2() {
     try {
       if (e && Number(e.code) === 0 && e.data) {
         list = e.data;
-        template = list.filter(function (x) { return x.iChooseTag; })[0] || list[0];
         render();
-        status('机型列表已加载（共 ' + list.length + ' 项）');
+        status('机型列表已加载（共 ' + list.length + ' 项）。点某个机型=直接保存该机型');
       } else {
         status('获取列表失败: ' + JSON.stringify(e));
       }
@@ -48,19 +47,35 @@ function pageCode2() {
     catch (e) { status('调用 GetDeviceInfo 失败: ' + e); }
   });
 
-  function doSet(name, hide) {
-    var tpl = template || list[0];
-    if (!tpl) { toast('列表未就绪，请稍候或先点下方任意机型'); return; }
-    var d = JSON.parse(JSON.stringify(tpl));
-    if (hide) { d.iDeviceType = 3; d.strDeviceTail = '不显示'; }
-    else { d.strDeviceTail = name || d.strDeviceTail; if (d.iDeviceType === 3) d.iDeviceType = 0; }
+  // 核心：保存某个机型（保留其真实ID，服务器才认）
+  function apply(item, hide) {
+    if (!item) { toast('请先在下方点一个机型'); return; }
+    var d = JSON.parse(JSON.stringify(item));
+    var diy = ($('diy') && $('diy').value.trim()) || '';
+    var force = $('force') && $('force').checked;
+    if (hide) {
+      d.iDeviceType = 3; d.strDeviceTail = '不显示'; d.strDiyMemo = '';
+    } else if (force && diy) {
+      // 实验性：强行改机型名（多数会被服务器按ID还原，仅供测试）
+      d.strDeviceTail = diy; if (d.iDeviceType === 3) d.iDeviceType = 0; d.strDiyMemo = '';
+    } else {
+      // 自定义文字（需黄钻，≤10字），叠加在机型前
+      d.strDiyMemo = diy;
+      if (d.iDeviceType === 3) d.iDeviceType = 0;
+    }
     d.iChooseTag = 1;
     d.iOpMask = 0;
-    if (d.strDiyMemo === undefined) d.strDiyMemo = '';
     try {
       window.mqq.invoke('Qzone', 'SetUserTail', d);
-      toast('已提交: ' + (hide ? '不显示' : d.strDeviceTail) + '（对新动态生效）');
+      toast('已提交: ' + (d.strDiyMemo ? d.strDiyMemo + ' ' : '') + d.strDeviceTail + ' → 发条新说说查看');
     } catch (e) { toast('保存失败: ' + e); }
+  }
+
+  function tag(it) {
+    var s = '';
+    if (it.iChooseTag) s += ' [当前]';
+    if (it.iOpMask > 1) s += ' [需黄钻]';
+    return s;
   }
 
   function render() {
@@ -68,9 +83,9 @@ function pageCode2() {
     box.innerHTML = '';
     list.forEach(function (it) {
       var b = document.createElement('button');
-      b.textContent = it.strDeviceTail + (it.iChooseTag ? '  ✓' : '');
-      b.style.cssText = 'display:block;width:100%;text-align:left;padding:10px 12px;margin:6px 0;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:14px;color:#333';
-      b.onclick = function () { template = JSON.parse(JSON.stringify(it)); toast('已选模板: ' + it.strDeviceTail); };
+      b.textContent = it.strDeviceTail + tag(it);
+      b.style.cssText = 'display:block;width:100%;text-align:left;padding:11px 12px;margin:6px 0;border:1px solid ' + (it.iChooseTag ? '#07c160' : '#ddd') + ';border-radius:8px;background:#fff;font-size:14px;color:#333';
+      b.onclick = function () { apply(it, false); };
       box.appendChild(b);
     });
   }
@@ -80,17 +95,18 @@ function pageCode2() {
     document.body.style.cssText = 'margin:0;padding:16px;font-family:-apple-system,system-ui;background:#f5f5f5;color:#333';
     document.body.innerHTML =
       '<h3 style="margin:0 0 8px">QQ机型小尾巴工具</h3>' +
-      '<div id="st" style="font-size:12px;color:#888;margin-bottom:10px">初始化...</div>' +
-      '<input id="inp" placeholder="输入任意机型，如 iPhone 17 Pro Max" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:8px" />' +
-      '<div style="display:flex;gap:8px;margin-bottom:14px">' +
-        '<button id="save" style="flex:1;padding:12px;border:0;border-radius:8px;background:#07c160;color:#fff;font-size:15px">应用并保存</button>' +
-        '<button id="hide" style="padding:12px 16px;border:0;border-radius:8px;background:#888;color:#fff;font-size:15px">不显示</button>' +
-      '</div>' +
-      '<div style="font-size:12px;color:#888;margin-bottom:6px">下方为你账号真实机型列表，可先点一个作模板再改名：</div>' +
-      '<div id="list"></div>';
-    $('inp').value = DEFAULT;
-    $('save').onclick = function () { doSet($('inp').value.trim(), false); };
-    $('hide').onclick = function () { doSet('', true); };
+      '<div id="st" style="font-size:12px;color:#888;margin-bottom:12px">初始化...</div>' +
+      '<div style="font-size:13px;font-weight:600;margin-bottom:4px">① 换成列表里的机型（最稳）</div>' +
+      '<div style="font-size:12px;color:#888;margin-bottom:6px">点一下即直接保存为该机型，[需黄钻]的项非会员可能无效：</div>' +
+      '<div id="list" style="margin-bottom:16px"></div>' +
+      '<div style="font-size:13px;font-weight:600;margin-bottom:4px">② 自定义文字（需黄钻，≤10字）</div>' +
+      '<input id="diy" maxlength="10" placeholder="如 17PM（会叠加在机型前）" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:8px" />' +
+      '<label style="display:block;font-size:12px;color:#c00;margin-bottom:10px"><input type="checkbox" id="force" /> 实验：强行把机型名改成上面文字（多数会被服务器还原）</label>' +
+      '<button id="hide" style="width:100%;padding:12px;border:0;border-radius:8px;background:#888;color:#fff;font-size:15px">设为“不显示”</button>';
+    $('hide').onclick = function () {
+      var cur = list.filter(function (x) { return x.iChooseTag; })[0] || list[0];
+      apply(cur, true);
+    };
     render();
   }
   build();
